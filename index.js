@@ -34,6 +34,7 @@ async function run() {
         const menuCollection = client.db('bistroBossDB').collection('menu');
         const reviewsCollection = client.db('bistroBossDB').collection('reviews');
         const cartsCollection = client.db('bistroBossDB').collection('carts');
+        const paymentsCollection = client.db('bistroBossDB').collection('payments');
 
         //jwt related api
         app.post('/jwt', async (req, res) => {
@@ -208,6 +209,30 @@ async function run() {
             res.send({
                 clientSecret: paymentIntent.client_secret,
             });
+        })
+
+        app.get('/payments/:email', verifyToken, async (req, res) => {
+            const query = { email: req.params.email };
+            if (req.params.email !== req.decoded.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            const result = await paymentsCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentsCollection.insertOne(payment);
+
+            //delete each item form the cart
+            const query = {
+                _id: {
+                    $in: payment.cartIds.map(id => new ObjectId(id))
+                }
+            };
+
+            const deleteResult = await cartsCollection.deleteMany(query);
+            res.send({ paymentResult, deleteResult })
         })
 
         // Send a ping to confirm a successful connection
