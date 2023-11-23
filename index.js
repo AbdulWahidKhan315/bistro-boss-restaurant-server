@@ -1,6 +1,7 @@
 const express = require('express');
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const app = express();
 const cors = require('cors');
 const port = process.env.PORT || 5000;
@@ -130,7 +131,7 @@ async function run() {
 
         app.get('/menu/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await menuCollection.findOne(query);
             res.send(result)
         })
@@ -141,13 +142,13 @@ async function run() {
             res.send(result);
         })
 
-        app.patch('/menu/:id',async(req,res)=>{
+        app.patch('/menu/:id', async (req, res) => {
             const id = req.params.id;
             const item = req.body;
-            const filter = {_id: new ObjectId(id)};
+            const filter = { _id: new ObjectId(id) };
             const updateDoc = {
                 $set: {
-                    name:item.name,
+                    name: item.name,
                     category: item.category,
                     price: item.price,
                     recipe: item.recipe,
@@ -155,7 +156,7 @@ async function run() {
 
                 }
             }
-            const result = await menuCollection.updateOne(filter,updateDoc);
+            const result = await menuCollection.updateOne(filter, updateDoc);
             res.send(result)
         })
 
@@ -191,6 +192,22 @@ async function run() {
             const query = { _id: new ObjectId(id) };
             const result = await cartsCollection.deleteOne(query);
             res.send(result);
+        })
+
+        //payment intent...
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
         })
 
         // Send a ping to confirm a successful connection
